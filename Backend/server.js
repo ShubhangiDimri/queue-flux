@@ -16,9 +16,11 @@ connectDB();
 
 // Import Routes
 const appointmentRoutes = require('./routes/appointmentRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 // Mount Routes
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/auth', authRoutes);
 
 // Base Test Route
 app.get('/', (req, res) => {
