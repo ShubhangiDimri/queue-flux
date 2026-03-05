@@ -1,10 +1,15 @@
-// routes/appointmentRoutes.js
 const express = require('express');
 const router = express.Router();
-const { bookAppointment, getLiveQueue } = require('../controllers/appointmentController');
+const { bookAppointment, getQueue, completeAppointment } = require('../controllers/appointmentController');
+const { protect, authorizeRole } = require('../middlewares/authMiddleware');
 
-// Define routes and attach controller functions
-router.post('/book', bookAppointment);
-router.get('/queue/:doctorId', getLiveQueue);
+// POST /api/appointments/book - Only patients can book
+router.post('/book', protect, authorizeRole('patient'), bookAppointment);
+
+// GET /api/appointments/queue/:doctorId - Get waiting queue (FIFO)
+router.get('/queue/:doctorId', getQueue);
+
+// PUT /api/appointments/complete/:id - Only doctors can complete
+router.put('/complete/:id', protect, authorizeRole('doctor'), completeAppointment);
 
 module.exports = router;

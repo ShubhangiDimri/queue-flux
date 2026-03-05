@@ -1,36 +1,23 @@
 const Appointment = require('../models/appointment');
 
-//  Book a new appointment and calculate queue
+// Book a new appointment (patient only)
 const bookAppointment = async (req, res) => {
     try {
-        const { patientName, doctorId, priority } = req.body;
+        const { doctorId, date } = req.body;
+        const patientId = req.user.userId;
 
-        // 1. Find current queue length for this specific doctor
-        const currentQueueLength = await Appointment.countDocuments({ 
-            doctorId: doctorId, 
-            status: 'Waiting' 
-        });
-
-        // 2. Simple Math for Mid-Sem (15 mins per patient)
-        // If it's an Emergency, we will handle priority sorting later!
-        const estimatedWait = currentQueueLength * 15; 
-
-        // 3. Create the appointment object
         const newAppointment = new Appointment({
-            patientName,
+            patientId,
             doctorId,
-            priority: priority || 'Normal',
-            queuePosition: currentQueueLength + 1,
-            estimatedWaitTime: estimatedWait
+            date,
+            status: 'Waiting'
         });
 
-        // 4. Save to Database
         await newAppointment.save();
 
-        // 5. Send Success Response
         res.status(201).json({
             success: true,
-            message: "Appointment Booked Successfully",
+            message: "Appointment booked successfully",
             data: newAppointment
         });
 
@@ -40,20 +27,58 @@ const bookAppointment = async (req, res) => {
     }
 };
 
-// Get the live queue for the Doctor's Dashboard
-const getLiveQueue = async (req, res) => {
+// Get waiting queue for a doctor (FIFO)
+const getQueue = async (req, res) => {
     try {
         const { doctorId } = req.params;
-        const queue = await Appointment.find({ doctorId: doctorId, status: 'Waiting' })
-                                       .sort({ createdAt: 1 }); // Oldest first
         
-        res.status(200).json({ success: true, count: queue.length, data: queue });
+        const queue = await Appointment.find({ 
+            doctorId, 
+            status: 'Waiting' 
+        }).sort({ createdAt: 1 });
+        
+        res.status(200).json({ 
+            success: true, 
+            count: queue.length, 
+            data: queue 
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: "Could not fetch queue" });
     }
 };
 
+// Complete an appointment (doctor only)
+const completeAppointment = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const appointment = await Appointment.findByIdAndUpdate(
+            id,
+            { status: 'Completed' },
+            { new: true }
+        );
+
+        if (!appointment) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "Appointment not found" 
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Appointment completed",
+            data: appointment
+        });
+
+    } catch (error) {
+        console.error("Complete Error:", error);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
 module.exports = {
     bookAppointment,
-    getLiveQueue
+    getQueue,
+    completeAppointment
 };
